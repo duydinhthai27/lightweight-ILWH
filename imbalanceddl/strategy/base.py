@@ -5,6 +5,10 @@ from tensorboardX import SummaryWriter
 from sklearn.metrics import confusion_matrix
 from imbalanceddl.utils.metrics import shot_acc
 import numpy as np
+from torchvision.transforms import AutoAugment, AutoAugmentPolicy
+from torchvision import transforms
+from torchvision.transforms import RandAugment
+from imbalanceddl.utils.cutout import Cutout
 
 
 class BaseTrainer(metaclass=abc.ABCMeta):
@@ -50,6 +54,21 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         balanced dataset.
         """
         self.train_dataset, self.val_dataset = dataset.train_val_sets
+
+        if hasattr(self.train_dataset, 'transform'):
+            train_transform = self.train_dataset.transform
+            if isinstance(train_transform, transforms.Compose):
+                transform_list = list(train_transform.transforms)
+                # Add RandAugment before ToTensor and Normalize
+                # transform_list.insert(-2, RandAugment(num_ops=2, magnitude=14))  # RandAugment
+                # transform_list.insert(-2, AutoAugment(policy=AutoAugmentPolicy.CIFAR10))  # AutoAugment
+
+                # For Cutout, add after ToTensor and Normalize
+                transform_list.insert(-1, Cutout(n_holes=1, length=2)) # Cutout
+                print(transform_list)
+                self.train_dataset.transform = transforms.Compose(transform_list)
+                print("=> Using Data Augmentation for training dataset !")
+
         self.train_loader = torch.utils.data.DataLoader(
             self.train_dataset,
             batch_size=self.cfg.batch_size,
