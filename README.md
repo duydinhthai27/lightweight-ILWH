@@ -119,7 +119,7 @@ trainer.eval_best_model()
 
 ```
 cd example
-python main.py --gpu 0 --seed 1126 --c config/config_cifar10.yaml --strategy ERM
+python main2.py --gpu 0 --seed 1126 --c config/config_cifar10.yaml --strategy ERM
 
 ```
 * Following the example code, you can not only get results from baseline training as well as state-of-the-art performance such as [LDAM](https://arxiv.org/pdf/1906.07413.pdf) or [Remix](https://arxiv.org/pdf/2007.03943.pdf), but also use this environment to develop your own algorithm / strategy. Feel free to add your own strategy into this package.

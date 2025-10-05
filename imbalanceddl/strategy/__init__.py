@@ -7,9 +7,10 @@ from ._ldam_drw import LDAMDRWTrainer
 from ._reweight_cb import ReweightCBTrainer
 from ._m2m import M2mTrainer
 from ._deepsmote import DeepSMOTETrainer
+from ._mixup import Mixup_Trainer
 
 
 __all__ = [
     "MixupTrainer", "RemixTrainer", "ERMTrainer", "DRWTrainer",
-    "LDAMDRWTrainer", "ReweightCBTrainer", "MAMixTrainer", "M2mTrainer", "DeepSMOTETrainer"
+    "LDAMDRWTrainer", "ReweightCBTrainer", "MAMixTrainer", "M2mTrainer", "DeepSMOTETrainer", "Mixup_Trainer"
 ]

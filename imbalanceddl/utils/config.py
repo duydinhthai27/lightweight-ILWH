@@ -56,12 +56,16 @@ def get_args():
     parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
     # Evaluation with Best Model
     parser.add_argument('--best_model', default=None, type=str, metavar='PATH', help='Path to Best Model')
-
-    # Adjusted Weight
-    parser.add_argument('--adjusted_weight', default=1.0, type=float, help='Hyper-parameter for weighting adjustment')
-
+    
     # Data Augmentation Techniques
     parser.add_argument('--data_augment', default=None, type=str, help='Data augmentation techniques to apply (e.g., "RandAugment, Cutout")')
+
+    # Sampling
+    parser.add_argument('--sampling', default='Random', type=str, help='For Balance - Sampler to use')
+    parser.add_argument('--batch_size', default=128, type=int, help='For Balance - batch size')
+    parser.add_argument('--n_batches', default=400, type=int, help='For Balance - number of batches per epoch')
+    parser.add_argument('--alpha', default=0.5, type=float, help='For Balance - alpha')
+    parser.add_argument('--kind', default='random', type=str, help='For Balance - Kind of sampler')
 
     # update config from command line
     parser.set_defaults(**config)

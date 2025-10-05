@@ -42,8 +42,17 @@ ratio: 100
 eff_beta: 1
 over: True
 imb_start: 5
+cinic_root : './data'
+# sampling method WeightedRandomBatchSampler, WeightedFixedBatchSampler, Random, StratifiedSampler
+#sampling  : WeightedRandomBatchSampler #date :4/10
+sampling : 'WeightedFixedBatchSampler'
+#hyperparameter for balance sampling
+n_batches : 179
+alpha : 0.5
+kind : 'fixed'
+data_augment: 'randaugment'
 
-data_augment : None
+data_augment : randaugment
 cinic_root: /home/hamt/light_weight/imbalanced-DL/example/data/
 train_dir: /home/hamt/light_weight/imbalanced-DL/example/data/cinic-10/train
 val_dir : /home/hamt/light_weight/imbalanced-DL/example/data/cinic-10/valid

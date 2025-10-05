@@ -7,11 +7,11 @@ imb_factor: 0.01
 rand_number: 0
 workers: 4
 # model backbone
+# backbone: 'resnet32'
 backbone: 'resnet32'
 # model classifier
 classifier: 'dot_product_classifier'
 # Training related parameters
-gpu: 0
 start_epoch: 0
 epochs: 200
 batch_size: 128
@@ -43,5 +43,11 @@ eff_beta: 1
 over: True
 imb_start: 5
 cifar_root : './data'
-adjusted_weight: 1.0
-data_augment: None
+gpu: 1
+# sampling method WeightedRandomBatchSampler, WeightedFixedBatchSampler, Random, StratifiedSampler
+sampling : "WeightedRandomBatchSampler"
+#hyperparameter for balance sampling
+n_batches : 97
+alpha : 0.5
+kind : 'fixed'
+data_augment : "randaugment"

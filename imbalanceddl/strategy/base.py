@@ -5,10 +5,17 @@ from tensorboardX import SummaryWriter
 from sklearn.metrics import confusion_matrix
 from imbalanceddl.utils.metrics import shot_acc
 import numpy as np
-from torchvision.transforms import AutoAugment, AutoAugmentPolicy
+# from imbalanceddl.utils.stratifiedSampler import StratifiedSampler
+from  imbalanceddl.utils.backup_sampler import StratifiedSampler
+from imbalanceddl.utils.sampler2 import BalancedSampler
+from imbalanceddl.utils.bsampler import WeightedFixedBatchSampler
+from imbalanceddl.utils.bsampler import SamplerFactory
+from collections import Counter
+import torch
 from torchvision import transforms
-from torchvision.transforms import RandAugment
+from torchvision.transforms import RandAugment, AutoAugment, AutoAugmentPolicy
 from imbalanceddl.utils.cutout import Cutout
+
 
 
 class BaseTrainer(metaclass=abc.ABCMeta):
@@ -53,35 +60,190 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         Note that we are training in imbalanced dataset, and evaluating in
         balanced dataset.
         """
-
+        # 12.12
+        # if self.cfg.stragegy == "Mixup_DRW" :
+        # Use StratifiedSampler for the train DataLoader
         self.train_dataset, self.val_dataset = dataset.train_val_sets
 
+        # Data Augmentation
         if hasattr(self.train_dataset, 'transform'):
             train_transform = self.train_dataset.transform
             if isinstance(train_transform, transforms.Compose):
                 transform_list = list(train_transform.transforms)
-                # Add RandAugment before ToTensor and Normalize
-                # transform_list.insert(-2, RandAugment(num_ops=2, magnitude=14))  # RandAugment
-                # transform_list.insert(-2, AutoAugment(policy=AutoAugmentPolicy.CIFAR10))  # AutoAugment
-
-                # For Cutout, add after ToTensor and Normalize
-                transform_list.insert(-1, Cutout(n_holes=1, length=2)) # Cutout
-                print(transform_list)
+                # Switch case for different data augmentation methods
+                if hasattr(self.cfg, 'data_augment'):
+                    if self.cfg.data_augment == 'randaugment':
+                        transform_list.insert(-2, RandAugment(num_ops=2, magnitude=14))
+                        print("=> Using RandAugment for training dataset!")
+                    elif self.cfg.data_augment == 'autoaugment_cifar10':
+                        transform_list.insert(-2, AutoAugment(policy=AutoAugmentPolicy.CIFAR10))
+                        print("=> Using AutoAugment CIFAR10 for training dataset!")
+                    elif self.cfg.data_augment == 'autoaugment_svhn':
+                        transform_list.insert(-2, AutoAugment(policy=AutoAugmentPolicy.SVHN))
+                        print("=> Using AutoAugment SVHN for training dataset!")
+                    elif self.cfg.data_augment == 'autoaugment_imagenet':
+                        transform_list.insert(-2, AutoAugment(policy=AutoAugmentPolicy.IMAGENET))
+                        print("=> Using AutoAugment ImageNet for training dataset!")
+                    elif self.cfg.data_augment == 'autoaugment':
+                        transform_list.insert(-2, AutoAugment())
+                        print("=> Using AutoAugment for training dataset!")
+                    elif self.cfg.data_augment == 'cutout':
+                        transform_list.insert(-1, Cutout(n_holes=1, length=16))
+                        print("=> Using Cutout for training dataset!")
+                    elif self.cfg.data_augment is None:
+                        print("=> No data augmentation used!")
+                    else:
+                        print(f"=> Warning: Unknown data augmentation method {self.cfg.data_augment}")
+                
                 self.train_dataset.transform = transforms.Compose(transform_list)
-                print("=> Using Data Augmentation for training dataset !")
+        
+        if self.cfg.sampling == "WeightedRandomBatchSampler":
+            print("Using WeightedRandomBatchSampler.")
+            class_idxs = self.train_dataset.get_class_idxs2()
+            sampler_factory = SamplerFactory()
+            sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.n_batches, self.cfg.alpha, "random")
+            self.train_loader = torch.utils.data.DataLoader(
+                self.train_dataset,
+                batch_sampler=sampler)
+        elif self.cfg.sampling == "WeightedFixedBatchSampler":
+            print("Using WeightedFixedBatchSampler.")
+            class_idxs = self.train_dataset.get_class_idxs2()
+            sampler_factory = SamplerFactory()
+            sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.n_batches, self.cfg.alpha, "fixed")
+            self.train_loader = torch.utils.data.DataLoader(
+                self.train_dataset,
+                batch_sampler=sampler)
 
-        self.train_loader = torch.utils.data.DataLoader(
-            self.train_dataset,
-            batch_size=self.cfg.batch_size,
-            shuffle=True,
-            num_workers=self.cfg.workers,
-            pin_memory=True)
+        elif self.cfg.sampling == "Random":
+            print("Using Random Sampler.")
+            self.train_loader = torch.utils.data.DataLoader(
+                self.train_dataset,
+                batch_size=self.cfg.batch_size,
+                shuffle=True, 
+                num_workers=self.cfg.workers,
+                pin_memory=True
+            )
+
+        elif self.cfg.sampling == "StratifiedSampler":
+            print("Using StratifiedSampler.")
+            sampler = StratifiedSampler(
+                labels=self.train_dataset.targets,
+                num_samples=len(self.train_dataset),
+                batch_size=self.cfg.batch_size
+            )
+            self.train_loader = torch.utils.data.DataLoader(
+                self.train_dataset,
+                batch_sampler=sampler,
+                num_workers=self.cfg.workers,
+                pin_memory=True
+            )
+
+        else:
+            raise ValueError(f"Unsupported sampling method: {self.cfg.sampling}")
+
+        # Print class-wise sample counts (for debugging)
+        class_counts = Counter()
+        for _, batch_labels in self.train_loader:
+            class_counts.update(batch_labels.tolist())
+        print("Class-wise sample counts:")
+        for class_label, count in sorted(class_counts.items()):
+            print(f"Class {class_label}: {count}")
+
+        # Validation loader remains the same
         self.val_loader = torch.utils.data.DataLoader(
             self.val_dataset,
             batch_size=100,
             shuffle=False,
             num_workers=self.cfg.workers,
-            pin_memory=True)
+            pin_memory=True
+        )
+        # print("Stratified Sampler Accessed.")
+        # # sampler = StratifiedSampler(
+        # #     labels=self.train_dataset.targets,
+        # #     num_samples=len(self.train_dataset),
+        # #     # num_samples_per_class=self.num_samples_per_class,
+        # #     batch_size=self.cfg.batch_size, 
+        # #     # alpha=self.alpha
+        # # )
+        # # STRATIFIED - CODE VER 2
+        # # sampler = StratifiedSampler(
+        # #     self.train_dataset,
+        # #     # labels=self.train_dataset.targets,  # Use targets from the dataset
+        # #     num_samples=len(self.train_dataset),  # Total number of samples
+        # #     num_samples_per_class=self.train_dataset.get_cls_num_list(),  # Class distribution
+        # #     batch_size=self.cfg.batch_size,
+        # #     alpha=0.5
+        # # )
+        # # BALANCED DATASET
+        # batch_size = 128
+        # n_batches = 128
+        # alpha = 0.7
+        # kind = 'fixed'
+        # class_idxs = self.train_dataset.get_class_idxs2()
+        # sampler_factory = SamplerFactory()
+        # sampler = sampler_factory.get(class_idxs, batch_size, n_batches, alpha, kind)
+
+        # # sampler = WeightedFixedBatchSampler(
+        # #     weights=self.train_dataset.get_sample_weights(),
+        # #     num_samples_per_class=self.train_dataset.get_cls_num_list(),
+        # #     num_classes=10,
+        # #     M=6,
+        # #     batch_size=self.cfg.batch_size,
+        # #     replacement=True,
+        # # )
+        
+        # # sampler = BalancedSampler(
+        # #     weights=self.train_dataset.get_sample_weights(),
+        # #     num_samples_per_class=self.train_dataset.get_cls_num_list(),
+        # #     num_classes=10,
+        # #     M=4,
+        # #     batch_size=32,
+        # #     replacement=True
+        # # )
+        # # self.train_loader = torch.utils.data.DataLoader(
+        # #     self.train_dataset,
+        # #     batch_size=self.cfg.batch_size,
+        # #     sampler=sampler, 
+        # #     num_workers=0,
+        # #     pin_memory=True
+        # # )
+        # # stratified_sampler = StratifiedSampler(
+        # #      labels=self.train_dataset.targets,  
+        # #     num_samples=len(self.train_dataset),
+        # # )
+        # self.train_loader = torch.utils.data.DataLoader(
+        #     self.train_dataset,
+        #     batch_sampler=sampler
+        # )
+        # # Dictionary to store counts of each class
+        # class_counts = Counter()
+
+        # # Iterate through the DataLoader
+        # for batch_data, batch_labels in self.train_loader:
+        #     # Update class counts with the labels from the batch
+        #     class_counts.update(batch_labels.tolist())
+
+        # # Print the number of samples for each class
+        # print("Class-wise sample counts:")
+        # for class_label, count in sorted(class_counts.items()):
+        #     print(f"Class {class_label}: {count}")
+        #     # break  # Show only the first batch
+        # # Iterate through the DataLoader and print sampled data
+        # # else:
+        # #     self.train_dataset, self.val_dataset = dataset.train_val_sets
+        # #     self.train_loader = torch.utils.data.DataLoader(
+        # #         self.train_dataset,
+        # #         batch_size=self.cfg.batch_size,
+        # #         shuffle=True,
+        # #         num_workers=self.cfg.workers,
+        # #         pin_memory=True)
+        # self.val_loader = torch.utils.data.DataLoader(
+        #     self.val_dataset,
+        #     batch_size=100,
+        #     shuffle=False,
+        #     num_workers=self.cfg.workers,
+        #     pin_memory=True)
+    
 
     def _prepare_logger(self):
         """Logger for records
@@ -90,16 +252,12 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         and a tensorboard writer for visualization.
         """
         print("=> Preparing logger and tensorboard writer !")
-        
-        # Get augmentation suffix for log  
-        aug_suffix = f"_{self.cfg.data_augment}" if hasattr(self.cfg, 'data_augment') and self.cfg.data_augment != 'none' else ""
-        
         self.log_training = open(
             os.path.join(self.cfg.root_log, self.cfg.store_name,
-                         f'log_train{aug_suffix}.csv'), 'w')
+                         'log_train.csv'), 'w')
         self.log_testing = open(
             os.path.join(self.cfg.root_log, self.cfg.store_name,
-                         f'log_test{aug_suffix}.csv'), 'w')
+                         'log_test.csv'), 'w')
         self.tf_writer = SummaryWriter(
             log_dir=os.path.join(self.cfg.root_log, self.cfg.store_name))
 
@@ -144,7 +302,6 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         cf = confusion_matrix(all_targets, all_preds).astype(float)
         cls_cnt = cf.sum(axis=1)
         cls_hit = np.diag(cf)
-        # import pdb; pdb.set_trace()
         cls_acc = cls_hit / cls_cnt
         # overall epoch output
         epoch_output = (

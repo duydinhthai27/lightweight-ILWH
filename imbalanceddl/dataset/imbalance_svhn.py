@@ -77,6 +77,37 @@ class IMBALANCESVHN(torchvision.datasets.SVHN):
         for i in range(self.cls_num):
             cls_num_list.append(self.num_per_cls_dict[i])
         return cls_num_list
+    def get_class_idxs2(self):
+        """
+        Generate class indices (class_idxs) for the dataset.
+
+        Returns
+        -------
+        class_idxs : list of lists
+            Each sublist contains the indices of samples for a particular class.
+        """
+        # Ensure self.targets is a 1D list or array of integers
+        if not isinstance(self.labels, (list, np.ndarray)):
+            raise ValueError("Expected self.targets to be a list or numpy array.")
+
+        # Convert self.targets to a numpy array
+        targets_np = np.array(self.labels, dtype=np.int64)
+
+        # Validate that targets_np contains valid integer class labels
+        if not np.issubdtype(targets_np.dtype, np.integer):
+            raise ValueError("Targets must contain integer class labels.")
+
+        # Find unique classes and generate indices for each class
+        classes = np.unique(targets_np)
+        class_idxs = [np.where(targets_np == the_class)[0].tolist() for the_class in classes]
+
+        # Validate that class_idxs is a list of lists and contains indices
+        if not all(isinstance(idxs, list) for idxs in class_idxs):
+            raise ValueError("Generated class_idxs is not a list of lists.")
+        if not all(all(isinstance(idx, int) for idx in idxs) for idxs in class_idxs):
+            raise ValueError("Class indices must be integers.")
+
+        return class_idxs
 
 
 if __name__ == '__main__':

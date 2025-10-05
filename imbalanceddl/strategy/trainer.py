@@ -45,6 +45,7 @@ class Trainer(BaseTrainer):
                 'test loss', 'major test acc', 'neutral test acc', 'minor test acc', 'test acc', 'f1 score'
             ]
 
+
     def get_criterion(self):
         return NotImplemented
 
@@ -127,6 +128,11 @@ class Trainer(BaseTrainer):
                 self.train_one_epoch(net, net_seed, optimizer, SUCCESS)
 
     def do_train_val(self):
+        if self.cfg.dataset == 'cifar10':
+            # To avoid it will process all datasets when running M2m method frist time, just import specific dataset.
+            from imbalanceddl.dataset.m2m_imbalance_cifar10 import cifar10_train_val_oversamples
+            train_in_loader, val_in_loader, train_oversamples_loader = cifar10_train_val_oversamples(self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha)
+            self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
         for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
             self.epoch = epoch
 
@@ -136,6 +142,7 @@ class Trainer(BaseTrainer):
             # criterion
             self.get_criterion()
             assert self.criterion is not None, "No criterion !"
+            # change to train_one_epoch_balance_mixup() to use mixup
             self.train_one_epoch()
             acc1 = self.validate()
             # remember best acc@1 and save checkpoint
@@ -161,6 +168,7 @@ class Trainer(BaseTrainer):
                     'best_acc1': self.best_acc1,
                     'optimizer': self.optimizer.state_dict()
                 }, is_best, self.epoch)
+           
 
     def eval_best_model(self):
         assert self.cfg.best_model is not None, "[Warning] Best Model \
@@ -180,6 +188,19 @@ class Trainer(BaseTrainer):
             # optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> [Loaded Best Model] '{}' (epoch {})".format(
                 self.cfg.best_model, checkpoint['epoch']))
+            
+            # self.model.load_state_dict(checkpoint['state_dict'])
+
+            # print("=> [Loaded Best Model]")
+
+            # # Evaluate and print metrics
+            # self.get_criterion()
+            # acc1, cls_acc_string = self.validate()
+            # print(f'Best Prec@1: {acc1:.3f}')
+            # print(cls_acc_string)
+
+            # # ✅ ADD THIS LINE TO RUN t-SNE VISUALIZATION
+            # plot_tsne(self, title=f"t-SNE Visualization: {self.cfg.sampling}")
         else:
             print("=> [No Trained Model Path found at '{}'".format(
                 self.cfg.best_model))
@@ -191,7 +212,8 @@ class Trainer(BaseTrainer):
         output_best = 'Best Prec@1: %.3f' % (acc1)
         print(output_best)
         print(cls_acc_string)
-        print("[Done] with evaluating with best model of {}".format(
+        print("[Done] with evaluating " \
+        "with best model of {}".format(
             self.cfg.best_model))
         return
 

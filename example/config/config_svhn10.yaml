@@ -43,4 +43,12 @@ eff_beta: 1
 over: True
 imb_start: 5
 svhn_root : './data'
-data_augment: None
+#  sampling method :  WeightedRandomBatchSampler, WeightedFixedBatchSampler
+
+#sampling : 'WeightedFixedBatchSampler'4/10/2025
+sampling: WeightedRandomBatchSampler
+#hyperparameter for balance sampling
+n_batches : 179
+alpha : 0.5
+kind : 'fixed'
+data_augment: 'randaugment'

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from .trainer import Trainer
-
+import wandb
 from imbalanceddl.utils.utils import AverageMeter
 from imbalanceddl.utils.metrics import accuracy
 

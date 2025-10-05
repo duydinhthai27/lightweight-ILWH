@@ -127,6 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+checkpoint*/
 example/data/
 example/log_*/
 example/checkpoint_*/
@@ -134,3 +135,6 @@ example/class_recall/
 example/latex/
 example/logs/
 visualization/
+example/wandb/
+imbalanceddl/dataset/data/*
+imbalanceddl/dataset/tests/*

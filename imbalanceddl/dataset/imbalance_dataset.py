@@ -1,4 +1,3 @@
-import os
 import torch
 import numpy as np
 import torchvision.transforms as transforms
@@ -181,7 +180,7 @@ class ImbalancedDataset:
             val_root, transform=self.data_transform['val'])
 
         return train_dataset, val_dataset
-
+    
     def _svhn10(self):
         print("=> Preparing IMBALANCESVHN {} | {} !".format(
             self.imb_type, self.imb_factor))
