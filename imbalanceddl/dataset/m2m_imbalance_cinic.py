@@ -70,8 +70,8 @@ class M2M_CINIC10_LT(datasets.ImageFolder, BaseDataset, M2mBaseDataset):
 # In this implementation, we dont do normalization because M2m will normalize when adding noise into image.
 def cinic_train_val_oversamples(cinic_root, batch_size=128):
     # cinic_root = "cinic/"
-    traindir = os.path.join(cinic_root, 'train')
-    valdir = os.path.join(cinic_root, 'valid')
+    traindir = os.path.join(cinic_root,'cinic-10','train')
+    valdir = os.path.join(cinic_root, 'cinic-10', 'valid')
 
     # No Normalization
     transform_train = transforms.Compose([

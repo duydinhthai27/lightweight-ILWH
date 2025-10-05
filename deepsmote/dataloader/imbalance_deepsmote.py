@@ -75,8 +75,8 @@ def cinic10_deepsmote(imb_type, imb_factor):
             [transforms.ToTensor()])
 
     train_cinic10_lt = {}
-    cinic_root = 'datasets/cinic/'
-    traindir = os.path.join(cinic_root, 'train')
+    cinic_root = '/home/hamt/light_weight/imbalanced-DL/example/data/'
+    traindir = os.path.join(cinic_root,"cinic-10", 'train')
 
     train_cinic10_lt = M2M_CINIC10_LT(root=traindir, transform=val_transform, is_imbalance_data = True, imb_type=imb_type, imb_factor=imb_factor)
     cls_num_list = train_cinic10_lt.get_cls_num_list()

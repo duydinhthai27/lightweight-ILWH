@@ -43,3 +43,5 @@ eff_beta: 1
 over: True
 imb_start: 5
 cifar_root : './data'
+adjusted_weight: 1.0
+data_augment: None

@@ -19,7 +19,7 @@ def get_args():
     parser.add_argument('--imb_type', default="exp", type=str, choices=['exp', 'step'], help='imbalance type')
     parser.add_argument('--imb_factor', default=0.01, type=float, help='imbalance factor')
     # Strategy
-    parser.add_argument('--strategy', default="ERM", type=str,  choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW','Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE'
+    parser.add_argument('--strategy', default="ERM", type=str,  choices=['ERM', 'DRW', 'LDAM_DRW', 'Mixup_DRW', 'Remix_DRW','Reweight_CB', 'MAMix_DRW', 'M2m', 'DeepSMOTE', 'Mixup'
                         ], help='select strategy for trainer')
     parser.add_argument('--learning_rate', default=0.1, type=float, metavar='LR', help='initial learning rate', dest='lr')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
@@ -56,6 +56,12 @@ def get_args():
     parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
     # Evaluation with Best Model
     parser.add_argument('--best_model', default=None, type=str, metavar='PATH', help='Path to Best Model')
+
+    # Adjusted Weight
+    parser.add_argument('--adjusted_weight', default=1.0, type=float, help='Hyper-parameter for weighting adjustment')
+
+    # Data Augmentation Techniques
+    parser.add_argument('--data_augment', default=None, type=str, help='Data augmentation techniques to apply (e.g., "RandAugment, Cutout")')
 
     # update config from command line
     parser.set_defaults(**config)

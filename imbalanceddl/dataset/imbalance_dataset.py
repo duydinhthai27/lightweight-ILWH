@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 import torchvision.transforms as transforms
@@ -145,16 +146,19 @@ class ImbalancedDataset:
         # Change to your path into configuration file
         # cinic_root = "/tmp2/wccheng/cinic/"
         cinic_root = self.cfg.cinic_root
+        #valid_path = self.cfg.val_dir
+        valid_path = self.cfg.val_dir
         train_dataset = IMBALANCECINIC10(
-            cinic_root + "train",
+            root=cinic_root,
             imb_type=self.imb_type,
             imb_factor=self.imb_factor,
             rand_number=self.cfg.rand_number,
-            transform=self.data_transform['train'])
-
+            transform=self.data_transform['train'],
+            download=False)
+        print(f"[DEBUG] Finished loading CINIC10 train data from {cinic_root}")
         self.cfg.cls_num_list = train_dataset.get_cls_num_list()
         val_dataset = datasets.ImageFolder(
-            cinic_root + "valid", transform=self.data_transform['val'])
+            valid_path, transform=self.data_transform['val'])
 
         return train_dataset, val_dataset
 
@@ -162,17 +166,19 @@ class ImbalancedDataset:
         print("=> Preparing IMBALANCETINY {} | {} !".format(
             self.imb_type, self.imb_factor))
         # Change to your path into configuration file
-        # tiny_root = "/tmp2/wccheng/tiny/tiny-imagenet-200/"
-        tiny_root = self.cfg.tiny_root
-        train_dataset = IMBALANCETINY(tiny_root + "train",
+        train_root = self.cfg.train_root
+        val_root = self.cfg.val_root
+        # path to train folder
+        train_dataset = IMBALANCETINY(train_root,
                                       imb_type=self.imb_type,
                                       imb_factor=self.imb_factor,
                                       rand_number=self.cfg.rand_number,
-                                      transform=self.data_transform['train'])
+                                      transform=self.data_transform['train'],
+                                      download=False)
 
         self.cfg.cls_num_list = train_dataset.get_cls_num_list()
         val_dataset = datasets.ImageFolder(
-            tiny_root + "val/images", transform=self.data_transform['val'])
+            val_root, transform=self.data_transform['val'])
 
         return train_dataset, val_dataset
 

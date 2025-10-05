@@ -39,10 +39,13 @@ def prepare_folders(args):
     Return: None
 
     """
+    import datetime
+    # Format: YYYYMMDD_HHMMSS
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     folders_util = [
         args.root_log, args.root_model,
-        os.path.join(args.root_log, args.store_name),
-        os.path.join(args.root_model, args.store_name)
+        os.path.join(args.root_log, args.store_name,timestamp),
+        os.path.join(args.root_model, args.store_name,timestamp)
     ]
     for folder in folders_util:
         if not os.path.exists(folder):
@@ -59,12 +62,16 @@ def prepare_store_name(args):
     Return: None
 
     """
+    import datetime
+    # Format: YYYYMMDD_HHMMSS
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     if args.strategy == 'Mixup_DRW':
         args.store_name = '_'.join([
             args.dataset, args.imb_type,
             str(args.imb_factor), args.strategy,
             str(args.epochs),
-            str(args.seed)
+            str(args.seed),
+            str(timestamp)
         ])
     elif args.strategy == 'Remix_DRW':
         args.store_name = '_'.join([
@@ -73,7 +80,8 @@ def prepare_store_name(args):
             str(args.k_majority),
             str(args.tau),
             str(args.epochs),
-            str(args.seed)
+            str(args.seed),
+            str(timestamp)
         ])
     elif args.strategy == 'MAMix_DRW':
         args.store_name = '_'.join([
@@ -81,7 +89,8 @@ def prepare_store_name(args):
             str(args.imb_factor), args.strategy,
             str(args.mamix_ratio),
             str(args.epochs),
-            str(args.seed)
+            str(args.seed),
+            str(timestamp)
         ])
     elif args.strategy == 'M2m_DRW':
         args.store_name = '_'.join([
@@ -89,14 +98,16 @@ def prepare_store_name(args):
             str(args.imb_factor), args.strategy,
             str(args.loss_type),
             str(args.epochs),
-            str(args.seed)
+            str(args.seed),
+            str(timestamp)
         ])
     else:
         args.store_name = '_'.join([
             args.dataset, args.imb_type,
             str(args.imb_factor), args.strategy,
             str(args.epochs),
-            str(args.seed)
+            str(args.seed),
+            str(timestamp)
         ])
     return
 

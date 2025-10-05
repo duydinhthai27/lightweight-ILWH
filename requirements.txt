@@ -10,9 +10,15 @@ scipy==1.5.4
 six==1.15.0
 tensorboardX==2.2
 threadpoolctl==2.1.0
-torch==1.8.1
-torchvision==0.9.1
+torch
+torchvision
 typing-extensions==3.7.4.3
 pylint==2.8.2
 torchmetrics==0.8.2
+tqdm
+matplotlib
+pandas
+seaborn
+ipykernel
+wandbtorchmetrics==0.8.2
 tqdm

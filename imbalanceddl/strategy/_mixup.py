@@ -27,12 +27,12 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
     return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
 
-class MixupTrainer(Trainer):
-    """Mixup-DRW Trainer
+class Mixup_Trainer(Trainer):
+    """Mixup Trainer
 
-    Strategy: Mixup with DRW training schedule
+    Strategy: Mixup  training schedule
 
-    Here we provide Mixup-DRW as a strategy, if you want to test
+    Here we provide Mixup as a strategy, if you want to test
     original Mixup on imbalanced dataset, just change criterion
     in get_criterion() method.
 
@@ -42,26 +42,17 @@ class MixupTrainer(Trainer):
     Paper Link: https://arxiv.org/pdf/1710.09412.pdf
     Code: https://github.com/facebookresearch/mixup-cifar10
 
-    Paper (DRW): Learning Imbalanced Datasets with \
+    Paper (DRW): Learning Imbalanced Datasets with
     Label-Distribution-Aware Margin Loss
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def get_criterion(self):
-        if self.strategy == 'Mixup_DRW':
-            if self.cfg.epochs == 300:
-                idx = self.epoch // 250
-            else:
-                idx = self.epoch // 160
-            betas = [0, 0.9999]
-            effective_num = 1.0 - np.power(betas[idx], self.cls_num_list)
-            per_cls_weights = (1.0 - betas[idx]) / np.array(effective_num)
-            per_cls_weights = per_cls_weights / np.sum(per_cls_weights) * len(
-                self.cls_num_list)
-            per_cls_weights = torch.FloatTensor(per_cls_weights).cuda(
-                self.cfg.gpu)
-            print("=> Per Class Weight = {}".format(per_cls_weights))
+        if self.strategy == 'Mixup':
+            per_cls_weights = None
+            print("=> CE Loss with Per Class Weight = {}".format(
+                per_cls_weights))
             self.criterion = nn.CrossEntropyLoss(weight=per_cls_weights,
                                                  reduction='none').cuda(
                                                      self.cfg.gpu)

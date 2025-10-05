@@ -53,6 +53,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         Note that we are training in imbalanced dataset, and evaluating in
         balanced dataset.
         """
+
         self.train_dataset, self.val_dataset = dataset.train_val_sets
 
         if hasattr(self.train_dataset, 'transform'):
@@ -89,12 +90,16 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         and a tensorboard writer for visualization.
         """
         print("=> Preparing logger and tensorboard writer !")
+        
+        # Get augmentation suffix for log  
+        aug_suffix = f"_{self.cfg.data_augment}" if hasattr(self.cfg, 'data_augment') and self.cfg.data_augment != 'none' else ""
+        
         self.log_training = open(
             os.path.join(self.cfg.root_log, self.cfg.store_name,
-                         'log_train.csv'), 'w')
+                         f'log_train{aug_suffix}.csv'), 'w')
         self.log_testing = open(
             os.path.join(self.cfg.root_log, self.cfg.store_name,
-                         'log_test.csv'), 'w')
+                         f'log_test{aug_suffix}.csv'), 'w')
         self.tf_writer = SummaryWriter(
             log_dir=os.path.join(self.cfg.root_log, self.cfg.store_name))
 
@@ -139,6 +144,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         cf = confusion_matrix(all_targets, all_preds).astype(float)
         cls_cnt = cf.sum(axis=1)
         cls_hit = np.diag(cf)
+        # import pdb; pdb.set_trace()
         cls_acc = cls_hit / cls_cnt
         # overall epoch output
         epoch_output = (

@@ -13,7 +13,7 @@ classifier: 'dot_product_classifier'
 # Training related parameters
 gpu: 0
 start_epoch: 0
-epochs: 300
+epochs: 200
 batch_size: 128
 optimizer: 'sgd'
 learning_rate: 0.1
@@ -43,3 +43,4 @@ eff_beta: 1
 over: True
 imb_start: 5
 cifar_root : './data'
+data_augment: None

@@ -42,4 +42,9 @@ ratio: 100
 eff_beta: 1
 over: True
 imb_start: 5
-cinic_root : './maitanha/cinic/'
+
+data_augment : None
+cinic_root: /home/hamt/light_weight/imbalanced-DL/example/data/
+train_dir: /home/hamt/light_weight/imbalanced-DL/example/data/cinic-10/train
+val_dir : /home/hamt/light_weight/imbalanced-DL/example/data/cinic-10/valid
+test_dir : /home/hamt/light_weight/imbalanced-DL/example/data/cinic-10/test
