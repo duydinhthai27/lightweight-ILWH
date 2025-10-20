@@ -1,0 +1,10 @@
+Class 0: 5000
+Class 1: 2997
+Class 2: 1796
+Class 3: 1077
+Class 4: 645
+Class 5: 387
+Class 6: 232
+Class 7: 139
+Class 8: 83
+Class 9: 50

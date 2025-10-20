@@ -140,7 +140,7 @@ class ImbalancedDataset:
         return train_dataset, val_dataset
 
     def _cinic10(self):
-        print("=> Preparing IMBALANCECINIC100 {} | {} !".format(
+        print("=> Preparing IMBALANCECINIC10 {} | {} !".format(
             self.imb_type, self.imb_factor))
         # Change to your path into configuration file
         # cinic_root = "/tmp2/wccheng/cinic/"
@@ -153,7 +153,7 @@ class ImbalancedDataset:
             imb_factor=self.imb_factor,
             rand_number=self.cfg.rand_number,
             transform=self.data_transform['train'],
-            download=False)
+            download=True)
         print(f"[DEBUG] Finished loading CINIC10 train data from {cinic_root}")
         self.cfg.cls_num_list = train_dataset.get_cls_num_list()
         val_dataset = datasets.ImageFolder(

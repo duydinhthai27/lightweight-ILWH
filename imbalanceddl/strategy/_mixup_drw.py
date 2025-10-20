@@ -5,10 +5,6 @@ from .trainer import Trainer
 
 from imbalanceddl.utils.utils import AverageMeter
 from imbalanceddl.utils.metrics import accuracy
-import wandb.apis.public as public
-import wandb
-from imbalanceddl.utils.m2m_utils import InputNormalize
-import torch.nn.functional as F
 
 
 def mixup_data(x, y, alpha=1.0):
@@ -33,24 +29,12 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
 
 class MixupTrainer(Trainer):
     """Mixup-DRW Trainer
-
-    Strategy: Mixup with DRW training schedule
-
-    Here we provide Mixup-DRW as a strategy, if you want to test
-    original Mixup on imbalanced dataset, just change criterion
-    in get_criterion() method.
-
-    Reference
-    ----------
-    Paper: mixup: Beyond Empirical Risk Minimization
-    Paper Link: https://arxiv.org/pdf/1710.09412.pdf
-    Code: https://github.com/facebookresearch/mixup-cifar10
-
-    Paper (DRW): Learning Imbalanced Datasets with \
-    Label-Distribution-Aware Margin Loss
+    ...
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # NEW: keep history of per-class weights (numpy arrays)
+        self.per_cls_weights_history = []
 
     def get_criterion(self):
         if self.strategy == 'Mixup_DRW':
@@ -63,164 +47,108 @@ class MixupTrainer(Trainer):
             per_cls_weights = (1.0 - betas[idx]) / np.array(effective_num)
             per_cls_weights = per_cls_weights / np.sum(per_cls_weights) * len(
                 self.cls_num_list)
-            per_cls_weights = torch.FloatTensor(per_cls_weights).cuda(
+            per_cls_weights_t = torch.FloatTensor(per_cls_weights).cuda(
                 self.cfg.gpu)
-            print("=> Per Class Weight = {}".format(per_cls_weights))
-            self.criterion = nn.CrossEntropyLoss(weight=per_cls_weights,
+
+            # Log as before
+            print("=> Per Class Weight = {}".format(per_cls_weights_t))
+
+            # NEW: record history (CPU numpy for easy aggregation later)
+            self.per_cls_weights_history.append(per_cls_weights.astype(np.float64))
+
+            self.criterion = nn.CrossEntropyLoss(weight=per_cls_weights_t,
                                                  reduction='none').cuda(
                                                      self.cfg.gpu)
         else:
             raise ValueError("[Warning] Strategy is not supported !")
-    def train_one_epoch_balance_mixup(self):
-        
-        if self.cfg.dataset == 'cifar100':
-            mean = torch.tensor([0.5071, 0.4867, 0.4408])
-            std = torch.tensor([0.2675, 0.2565, 0.2761])
-        elif self.cfg.dataset == 'cifar10':
-            mean = torch.tensor([0.4914, 0.4822, 0.4465])
-            std = torch.tensor([0.2023, 0.1994, 0.2010])
-        elif self.cfg.dataset == 'svhn10':
-            mean = torch.tensor([.5, .5, .5])
-            std = torch.tensor([.5, .5, .5])
-        elif self.cfg.dataset == 'tiny200':
-            mean = torch.tensor([0.485, 0.456, 0.406])
-            std = torch.tensor([0.229, 0.224, 0.225])
-        elif self.cfg.dataset == 'cinic10':
-            mean = torch.tensor([0.47889522, 0.47227842, 0.43047404])
-            std = torch.tensor([0.24205776, 0.23828046, 0.25874835])
+
+    # NEW: utility to aggregate class weights across epochs
+    def get_class_weight_distribution(self, agg: str = 'sum', normalize: bool = False):
+        """
+        Aggregate per-class weights across calls to get_criterion().
+
+        Parameters
+        ----------
+        agg : {'sum', 'mean'}
+            How to aggregate the history across epochs.
+        normalize : bool
+            If True, normalize the aggregated weights to sum to 1.
+
+        Returns
+        -------
+        np.ndarray
+            Aggregated (and optionally normalized) per-class weights, shape (num_classes,)
+        """
+        if not self.per_cls_weights_history:
+            raise RuntimeError("No per-class weights recorded yet. Call get_criterion() at least once.")
+
+        W = np.vstack(self.per_cls_weights_history)  # (num_records, C)
+        if agg == 'sum':
+            vec = W.sum(axis=0)
+        elif agg == 'mean':
+            vec = W.mean(axis=0)
         else:
-            raise NotImplementedError()
+            raise ValueError("agg must be 'sum' or 'mean'")
 
-        normalizer = InputNormalize(mean, std).to(self.cfg.gpu)
+        if normalize:
+            s = vec.sum()
+            if s > 0:
+                vec = vec / s
+        return vec
 
-        # Record
-        losses = AverageMeter('Loss', ':.4e')
-        top1 = AverageMeter('Acc@1', ':6.2f')
-        top5 = AverageMeter('Acc@5', ':6.2f')
+    # NEW: save to CSV with multiple helpful columns
+    def save_class_weight_distribution(self, path: str, agg: str = 'sum', normalize: bool = False):
+        """
+        Save per-class weight distribution to CSV.
 
-        # for confusion matrix
-        all_preds = list()
-        all_targets = list()
+        Columns:
+        - class_index
+        - last_epoch_weight
+        - agg_weight (sum or mean)
+        - normalized_weight (if normalize=True)
 
-        uncertainty_samples = list()
+        Parameters
+        ----------
+        path : str
+            Output CSV path (e.g., 'class_weight_distribution.csv')
+        agg : {'sum', 'mean'}
+            Aggregation across epochs.
+        normalize : bool
+            Whether to include a normalized column.
+        """
+        import csv
+        if not self.per_cls_weights_history:
+            raise RuntimeError("No per-class weights recorded yet. Call get_criterion() at least once.")
 
-        # med_tail_classes = cal_med_tail_classes(self.new_labelList, self.cfg.num_classes)
-        # med_tail_classes = torch.from_numpy(med_tail_classes).to(self.cfg.gpu)
-        # switch to train mode
-        self.model.to(self.cfg.gpu)
-        self.model.train()
+        last_w = self.per_cls_weights_history[-1]
+        agg_w = self.get_class_weight_distribution(agg=agg, normalize=False)
 
-        epoch_ave_grads_train = []
-        # epoch_ave_losses = []
+        norm_w = None
+        if normalize:
+            s = agg_w.sum()
+            norm_w = agg_w / s if s > 0 else agg_w
 
-        # for i, (_input, target) in enumerate(self.train_loader_custom):
-        for i, (_input, target) in enumerate(self.train_oversamples): 
+        with open(path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            header = ['class_index', 'last_epoch_weight', f'agg_weight_{agg}']
+            if normalize:
+                header.append('normalized_weight')
+            writer.writerow(header)
 
-            if self.cfg.gpu is not None:
-                _input = _input.cuda(self.cfg.gpu, non_blocking=True)
-                target = target.cuda(self.cfg.gpu, non_blocking=True)
+            for c in range(len(last_w)):
+                row = [c, float(last_w[c]), float(agg_w[c])]
+                if normalize:
+                    row.append(float(norm_w[c]))
+                writer.writerow(row)
 
-            _input = normalizer(_input)
-            # print("=> Training with Original Mixup")
-            # Mixup Data
-            _input_mix, target_a, target_b, lam = mixup_data(_input, target)
-            # Two kinds of output
-            output_prec, _ = self.model(_input)
-            output_mix, _ = self.model(_input_mix)
-            # output_prec = self.model(_input)
-            # output_mix = self.model(_input_mix)
+        # Optional: also log a quick summary to the training log if available
+        summary = (f"=> Saved class weight distribution to {path} | "
+                   f"agg={agg}, normalize={normalize}")
+        print(summary)
+        if hasattr(self, 'log_training') and self.log_training is not None:
+            self.log_training.write(summary + '\n')
+            self.log_training.flush()
 
-            # Probability of output
-            # prob_orgi = F.softmax(output_prec, dim=1)
-            prob_mix = F.softmax(output_mix, dim=1)
-            # max_prob_orgi, target_orig = torch.max(prob_orgi, dim=1)
-            max_prob_mix, target_mix = torch.max(prob_mix, dim=1)
-
-            # Calculate mask/ self.cfg.threshold is a hyper parameter to fine tunning uncertainty samples
-            # mask_orig = max_prob_orgi.le(self.cfg.threshold).float()
-            # mask_mix = max_prob_mix.le(self.cfg.threshold).float() #* check_in_med_tail(target_mix, med_tail_classes)
-
-            # Count the number of uncertainty samples
-            target_mix = target_mix.cpu().numpy() #* mask_mix.cpu().numpy()
-            uncertainty_samples.append(target_mix)
-
-            # loss_orgi = (mask_orig * self.criterion(output_prec, target)).mean()
-            # loss_mix = (mask_mix * mixup_criterion(self.criterion, output_mix, target_a,target_b, lam)).mean()
-            loss_mix = mixup_criterion(self.criterion, output_mix, target_a,target_b, lam).mean()
-
-            # final_loss = loss_orgi + loss_mix
-            final_loss = loss_mix
-            # For Loss, we use mixup output
-            # loss = mixup_criterion(self.criterion, output_mix, target_a,
-            #                        target_b, lam).mean()
-            acc1, acc5 = accuracy(output_prec, target, topk=(1, 5))
-            _, pred = torch.max(output_prec, 1)
-            all_preds.extend(pred.cpu().numpy())
-            all_targets.extend(target.cpu().numpy())
-
-            # measure accuracy and record loss
-            # losses.update(loss.item(), _input.size(0))
-            losses.update(final_loss.item(), _input.size(0))
-            top1.update(acc1[0], _input.size(0))
-            top5.update(acc5[0], _input.size(0))
-
-            self.optimizer.zero_grad()
-            # loss.backward()
-            final_loss.backward()
-            self.optimizer.step()
-
-            # Checking gradient vector
-            # model = self.model.cpu().named_parameters()
-            # ave_grads, self.layers = plot_grad_flow(model)
-            # ave_grads = np.asarray(ave_grads)
-            # epoch_ave_grads_train.append(ave_grads)
-            # self.model.to(self.cfg.gpu)
-
-            if i % self.cfg.print_freq == 0:
-                output = ('Epoch: [{0}][{1}/{2}], lr: {lr:.5f}\t'
-                          'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                          'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                          'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                              self.epoch,
-                              i,
-                              len(self.train_loader),
-                              loss=losses,
-                              top1=top1,
-                              top5=top5,
-                              lr=self.optimizer.param_groups[-1]['lr'] * 0.1))
-                print(output)
-                self.log_training.write(output + '\n')
-                self.log_training.flush()
-
-        # epoch_ave_grads_train = np.asarray(epoch_ave_grads_train)
-        # epoch_ave_grads_train = np.mean(epoch_ave_grads_train, axis = 0)
-        # if self.epoch == 165:
-        #     self.epoch_ave_grads_165 = epoch_ave_grads_train
-        # elif self.epoch == 170:
-        #     self.epoch_ave_grads_170 = epoch_ave_grads_train
-        # elif self.epoch == self.cfg.epochs - 1:
-        #     self.epoch_ave_grads_200 = epoch_ave_grads_train
-        
-        # self.epoch_variance_train = np.sum(epoch_ave_grads_train)
-
-        # epoch_ave_losses = np.asanyarray(losses.avg)
-        # self.trn_epoch_accuracy_avg = np.sum(epoch_ave_losses)
-
-        # Count the number of uncertainty samples for each class
-        uncertainty_samples = np.concatenate(uncertainty_samples, axis=0)
-        classes, class_counts = np.unique(uncertainty_samples, return_counts=True)
-        # import pdb
-        # pdb.set_trace()
-        # print("The classes: {}".format(classes))
-        print("The number of samples in each class of Balanced + Mixup: {}".format(class_counts))
-        self.compute_metrics_and_record(all_preds,
-                                        all_targets,
-                                        losses,
-                                        top1,
-                                        top5,
-                                        flag='Training')
-        
-        self.trn_epoch_accuracy_avg = top1.avg
     def train_one_epoch(self):
         # Record
         losses = AverageMeter('Loss', ':.4e')
@@ -240,12 +168,12 @@ class MixupTrainer(Trainer):
                 _input = _input.cuda(self.cfg.gpu, non_blocking=True)
                 target = target.cuda(self.cfg.gpu, non_blocking=True)
 
-            # print("=> Training with Original Mixup")
             # Mixup Data
             _input_mix, target_a, target_b, lam = mixup_data(_input, target)
             # Two kinds of output
             output_prec, _ = self.model(_input)
             output_mix, _ = self.model(_input_mix)
+
             # For Loss, we use mixup output
             loss = mixup_criterion(self.criterion, output_mix, target_a,
                                    target_b, lam).mean()

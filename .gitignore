@@ -138,3 +138,5 @@ visualization/
 example/wandb/
 imbalanceddl/dataset/data/*
 imbalanceddl/dataset/tests/*
+class_weight_export/
+data.tar.gz

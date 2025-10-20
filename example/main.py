@@ -7,7 +7,7 @@ from imbalanceddl.dataset.imbalance_dataset import ImbalancedDataset
 from imbalanceddl.strategy.build_trainer import build_trainer
 from imbalanceddl.utils.config import get_args
 
-"""def main():
+def main():
     config = get_args()
     # Prepare Log
     prepare_store_name(config)
@@ -61,7 +61,6 @@ from imbalanceddl.utils.config import get_args
             print("=> Start Train Val !")
             trainer.do_train_val()
         print("=> All Completed !")
-"""
 
 """Kim modified this code to allow training with all strategies in a loop.
 This will iterate through all strategies defined in the `strategiesMethod` list,
@@ -105,4 +104,5 @@ def training_model(path=None):
 
 
 if __name__ == "__main__":
-    training_model()
+    # training_model()
+    main()

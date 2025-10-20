@@ -44,7 +44,7 @@ def prepare_folders(args):
     folders_util = [
         args.root_log, args.root_model,
         os.path.join(args.root_log, args.store_name,timestamp),
-        os.path.join(args.root_model, args.store_name,timestamp)
+        # os.path.join(args.root_model, args.store_name,timestamp)
     ]
     for folder in folders_util:
         if not os.path.exists(folder):

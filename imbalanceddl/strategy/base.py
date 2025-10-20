@@ -101,7 +101,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
             print("Using WeightedRandomBatchSampler.")
             class_idxs = self.train_dataset.get_class_idxs2()
             sampler_factory = SamplerFactory()
-            sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.n_batches, self.cfg.alpha, "random")
+            sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.alpha, "random")
             self.train_loader = torch.utils.data.DataLoader(
                 self.train_dataset,
                 batch_sampler=sampler)
@@ -109,7 +109,7 @@ class BaseTrainer(metaclass=abc.ABCMeta):
             print("Using WeightedFixedBatchSampler.")
             class_idxs = self.train_dataset.get_class_idxs2()
             sampler_factory = SamplerFactory()
-            sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.n_batches, self.cfg.alpha, "fixed")
+            sampler = sampler_factory.get(class_idxs, self.cfg.batch_size, self.cfg.alpha, "fixed")
             self.train_loader = torch.utils.data.DataLoader(
                 self.train_dataset,
                 batch_sampler=sampler)
@@ -149,10 +149,14 @@ class BaseTrainer(metaclass=abc.ABCMeta):
         for class_label, count in sorted(class_counts.items()):
             print(f"Class {class_label}: {count}")
 
+        with open('/home/maitanha/vgu/lightweight/cls_num_list.txt', 'w') as f:
+            for class_label, count in sorted(class_counts.items()):
+                f.write(f"Class {class_label}: {count}\n")
+
         # Validation loader remains the same
         self.val_loader = torch.utils.data.DataLoader(
             self.val_dataset,
-            batch_size=100,
+            batch_size=1024,
             shuffle=False,
             num_workers=self.cfg.workers,
             pin_memory=True

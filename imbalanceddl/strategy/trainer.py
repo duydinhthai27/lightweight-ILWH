@@ -128,11 +128,11 @@ class Trainer(BaseTrainer):
                 self.train_one_epoch(net, net_seed, optimizer, SUCCESS)
 
     def do_train_val(self):
-        if self.cfg.dataset == 'cifar10':
-            # To avoid it will process all datasets when running M2m method frist time, just import specific dataset.
-            from imbalanceddl.dataset.m2m_imbalance_cifar10 import cifar10_train_val_oversamples
-            train_in_loader, val_in_loader, train_oversamples_loader = cifar10_train_val_oversamples(self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha)
-            self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
+        # if self.cfg.dataset == 'cifar10':
+        #     # To avoid it will process all datasets when running M2m method frist time, just import specific dataset.
+        #     from imbalanceddl.dataset.m2m_imbalance_cifar10 import cifar10_train_val_oversamples
+        #     train_in_loader, val_in_loader, train_oversamples_loader = cifar10_train_val_oversamples(self.cfg.cifar_root, self.cls_num_list, self.cfg.batch_size, self.cfg.alpha)
+        #     self.train_loader, self.val_loader, self.train_oversamples = train_in_loader, val_in_loader, train_oversamples_loader
         for epoch in range(self.cfg.start_epoch, self.cfg.epochs):
             self.epoch = epoch
 
@@ -158,16 +158,42 @@ class Trainer(BaseTrainer):
 
             if epoch == self.cfg.epochs - 1:
                 collect_result(self.cfg, output_best)
+            
 
-            save_checkpoint(
-                self.cfg, {
-                    'epoch': self.epoch + 1,
-                    'backbone': self.cfg.backbone,
-                    'classifier': self.cfg.classifier,
-                    'state_dict': self.model.state_dict(),
-                    'best_acc1': self.best_acc1,
-                    'optimizer': self.optimizer.state_dict()
-                }, is_best, self.epoch)
+            dist_sum = self.get_class_weight_distribution(agg='sum', normalize=False)
+            print("Normalized summed class-weight distribution:", dist_sum)
+
+            # Build a robust output directory and filename
+            safe = lambda name, default: str(getattr(self.cfg, name, default))
+            out_dir = os.path.join(
+                os.getcwd(),
+                "class_weight_export",
+                f"{safe('dataset', 'dataset')}_{safe('backbone', 'model')}_{safe('name', 'run')}"
+            )
+            os.makedirs(out_dir, exist_ok=True)
+
+            out_csv = os.path.join(
+                out_dir,
+                f"class_weight_distribution_seed{safe('seed','0')}_{epoch}.csv"
+            )
+
+            # Save CSV (will include last, agg, and normalized weights per class)
+            self.save_class_weight_distribution(
+                path=out_csv,
+                agg='sum',
+                normalize=True
+            )
+            print(f"=> Saved aggregated class weights to: {out_csv}")
+
+            # save_checkpoint(
+            #     self.cfg, {
+            #         'epoch': self.epoch + 1,
+            #         'backbone': self.cfg.backbone,
+            #         'classifier': self.cfg.classifier,
+            #         'state_dict': self.model.state_dict(),
+            #         'best_acc1': self.best_acc1,
+            #         'optimizer': self.optimizer.state_dict()
+            #     }, is_best, self.epoch)
            
 
     def eval_best_model(self):

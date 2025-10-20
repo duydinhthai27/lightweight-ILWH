@@ -14,7 +14,7 @@ classifier: 'dot_product_classifier'
 gpu: 0
 start_epoch: 0
 epochs: 300
-batch_size: 128
+batch_size: 1024
 optimizer: 'sgd'
 learning_rate: 0.1
 momentum: 0.9
@@ -27,7 +27,7 @@ mamix_ratio: -0.25
 # logging related
 print_freq: 10
 root_log: 'log_tiny200'
-root_model: 'checkpoint_tiny200'
+# root_model: 'checkpoint_tiny200'
 # M2m hyper parameter
 warm: 250
 # reweight: True
@@ -42,9 +42,9 @@ ratio: 100
 eff_beta: 1
 over: True
 imb_start: 5
-data_augment: 'randaugment'
+data_augment: None
 sampling  : 'WeightedFixedBatchSampler'
 # Path configurations for Tiny-ImageNet-200
-tiny_root: /home/hamt/light_weight/imbalanced-DL/example/data/tiny-imagenet-200/tiny-imagenet-200
-train_root: /home/hamt/light_weight/imbalanced-DL/example/data/tiny-imagenet-200/tiny-imagenet-200/train
-val_root: /home/hamt/light_weight/imbalanced-DL/example/data/tiny-imagenet-200/tiny-imagenet-200/val/images
+tiny_root: /home/maitanha/vgu/lightweight/example/data
+train_root: /home/maitanha/vgu/lightweight/example/data/tiny-imagenet-200/tiny-imagenet-200/train
+val_root: /home/maitanha/vgu/lightweight/example/data/tiny-imagenet-200/tiny-imagenet-200/val/images

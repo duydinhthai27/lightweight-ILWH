@@ -6,6 +6,7 @@ import numpy as np
 import os
 import requests
 import zipfile
+from tqdm import tqdm
 from imbalanceddl.dataset.dataset_base import BaseDataset
 
 
@@ -87,20 +88,36 @@ class IMBALANCETINY(torchvision.datasets.ImageFolder, BaseDataset):
             response = session.get(self.url, stream=True)
             response.raise_for_status()
             
+            # Get total file size for progress bar
+            total_size = int(response.headers.get('content-length', 0))
+            
             print(f'[DEBUG] Saving to {file_path}...')
-            with open(file_path, 'wb') as f:
+            with open(file_path, 'wb') as f, tqdm(
+                desc=f"Downloading {self.filename}",
+                total=total_size,
+                unit='B',
+                unit_scale=True,
+                unit_divisor=1024,
+            ) as pbar:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
+                        pbar.update(len(chunk))
 
             print(f'[DEBUG] Extracting to {base_dir}...')
             with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                # Safety check for zip file extraction
-                for zipinfo in zip_ref.infolist():
-                    if zipinfo.filename.startswith('/') or '..' in zipinfo.filename:
-                        print(f"[WARNING] Skipping potentially unsafe path: {zipinfo.filename}")
-                        continue
-                    zip_ref.extract(zipinfo, base_dir)
+                # Get list of files for progress tracking
+                file_list = zip_ref.infolist()
+                
+                # Safety check and extract with progress bar
+                with tqdm(desc="Extracting files", total=len(file_list), unit='file') as pbar:
+                    for zipinfo in file_list:
+                        if zipinfo.filename.startswith('/') or '..' in zipinfo.filename:
+                            print(f"[WARNING] Skipping potentially unsafe path: {zipinfo.filename}")
+                            pbar.update(1)
+                            continue
+                        zip_ref.extract(zipinfo, base_dir)
+                        pbar.update(1)
 
             # Make sure the validation data is in the right format
             # Tiny-ImageNet validation images are in a different structure

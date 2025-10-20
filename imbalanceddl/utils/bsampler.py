@@ -12,7 +12,7 @@ class SamplerFactory:
     def __init__(self, verbose=0):
         self.logger = setup_logger(self.__class__.__name__, verbose)
 
-    def get(self, class_idxs, batch_size, n_batches, alpha, kind):
+    def get(self, class_idxs, batch_size, alpha, kind, dataset_size=None):
         """
         Parameters
         ----------
@@ -22,9 +22,6 @@ class SamplerFactory:
 
         batch_size : int
             The batch size to use.
-
-        n_batches : int
-            The number of batches per epoch.
 
         alpha : numeric in range [0, 1]
             Weighting term used to determine weights of each class in each batch.
@@ -37,7 +34,19 @@ class SamplerFactory:
             The kind of sampler. `Fixed` will ensure each batch contains a constant proportion of
             samples from each class. `Random` will simply sample with replacement according to the
             calculated weights.
+
+        dataset_size : int, optional
+            Total number of samples in the dataset. If None, will be calculated automatically
+            from class_idxs.
         """
+
+        # Calculate n_batches automatically
+        if dataset_size is None:
+            dataset_size = sum(len(idxs) for idxs in class_idxs)
+
+        n_batches = (dataset_size + batch_size - 1) // batch_size
+        self.logger.info(f'Calculated {n_batches} batches of size {batch_size}')
+
         if kind == 'random':
             return self.random(class_idxs, batch_size, n_batches, alpha)
         if kind == 'fixed':
