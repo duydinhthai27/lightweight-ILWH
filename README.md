@@ -117,9 +117,3 @@ Results across multiple datasets with imbalance ratio 0.01:
 | **ILWH (Ours)** | 6,589.37G | **0.80×** | **<3% overhead** |
 
 ---
-
-## Contact
-If you have any question, please don't hesitate to email `wccheng3011@gmail.com` or `maitanhaksdtvt6@gmail.com`. Thanks !
-
-
----
